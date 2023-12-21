@@ -11,6 +11,9 @@ class Device(object):
         self.last_screen = None
     
     def connect(self):
+        """
+        connect a device and store the Device object in self.use
+        """
         self.use = u2.connect_usb(self.device_serial)
         self.use.implicitly_wait(5.0)
     
