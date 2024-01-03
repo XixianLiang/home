@@ -1,5 +1,7 @@
 #gitignore
 /dmf/DMF1220_OmniNotes
-*.sh
+run.sh
+check.sh
+record.sh
 /output
 /output1225

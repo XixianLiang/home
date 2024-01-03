@@ -5,6 +5,19 @@ from device import Device
 import demjson
 from view import View
 
+class bcolors:
+    """
+    To print colored text in the terminal.
+    """
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 class Record(object):
     """
     The process for recording DMFs
@@ -18,6 +31,7 @@ class Record(object):
     instance = None
     screenshot_num, ui_inst_num, current_layout_num = 0, 0, 0
     DMFtype, datatype = "", ""
+    uiInst = ""
     events, views, xmllist = [], [], []
     results, preconditions, postconditions = [], [], []
     HINT_RECORD_STEPS = "Record the steps of DMF in the webiter. Enter 2 to screenshot before recording each step. After all the recordings are completed, enter 1 to stop:"
@@ -31,7 +45,7 @@ class Record(object):
         self.app=app
         self.json_name = json_name
          
-    def findkeyword(self,key,keyword):
+    def findKeyword(self,key,keyword):
         num1=key.find(keyword+"=")
         returnkey = key[num1+len(keyword)+2:len(key)]
         num2=returnkey.find("\"")
@@ -39,7 +53,7 @@ class Record(object):
             returnkey = returnkey[0:num2]
         return returnkey
 
-    def findviewbytext(self,now_layout, text, not_view):
+    def findViewByText(self,now_layout, text, not_view):
         view=None
         for line in now_layout:
             if "<node" not in line:
@@ -54,7 +68,7 @@ class Record(object):
                 return view
         return None
     
-    def findviewbytextclassName(self, now_layout, text, className):
+    def findViewByTextClassName(self, now_layout, text, className):
         view=None
         for line in now_layout:
             if "<node" not in line:
@@ -66,7 +80,7 @@ class Record(object):
                 return view
         return None
 
-    def findviewinstance(self,now_layout, resourceId, className, text):
+    def findViewInstance(self,now_layout, resourceId, className, text):
         view=None
         instance = 0
         for line in now_layout:
@@ -88,7 +102,7 @@ class Record(object):
         return None
 
     def get_info(self, line:str, ui_layout_num:int, type:str, datatype:str):
-        print("line:"+line)
+        # print("line:"+line)
         resourceId=""
         text=""
         description=""
@@ -110,19 +124,19 @@ class Record(object):
             for key in keys:
                 if "resourceId=" in key:
                     keyword = "resourceId"
-                    returnkey = self.findkeyword(key,keyword)
+                    returnkey = self.findKeyword(key,keyword)
                     resourceId = returnkey
                 elif "className=" in key:
                     keyword = "className"
-                    returnkey = self.findkeyword(key,keyword)
+                    returnkey = self.findKeyword(key,keyword)
                     className = returnkey
                 elif "description=" in key:
                     keyword = "description"
-                    returnkey = self.findkeyword(key,keyword)
+                    returnkey = self.findKeyword(key,keyword)
                     description = returnkey
                 elif "xpath=" in key:
                     keyword = "xpath"
-                    returnkey = self.findkeyword(key,keyword)
+                    returnkey = self.findKeyword(key,keyword)
                     xpath = returnkey
                 elif "instance=" in key:
                     keyword = "instance"
@@ -130,9 +144,9 @@ class Record(object):
                     instance = returnkey
                 elif "text=" in key:
                     keyword = "text"
-                    returnkey = self.findkeyword(key,keyword)
+                    returnkey = self.findKeyword(key,keyword)
                     text = returnkey
-                
+  
         if "long_click" in line or "longclick" in line:
             action = "longclick"
         elif "click" in line:
@@ -177,6 +191,9 @@ class Record(object):
             edittext = datatype+"::random"
         elif action=="edit":
             edittext="random"
+
+        print(f"{bcolors.BOLD}{bcolors.OKGREEN}line:{line}{bcolors.ENDC}")
+        print(bcolors.OKGREEN, end="")
         print("resourceId:"+resourceId)
         print("text:"+text)
         print("description:"+description)
@@ -185,6 +202,7 @@ class Record(object):
         print("edittext:"+edittext)
         print("instance:"+instance)
         print("******************")
+        print(bcolors.ENDC, end="")
         widget = {"name":"e"+str(ui_layout_num+1)+"_widget","UI_layout_num":str(ui_layout_num),"text":text,"resource-id":resourceId,"class":className,"content-desc":description,"xpath":xpath,"instance": instance}
         event = {"widget":"e"+str(ui_layout_num+1)+"_widget","action": action,"text": edittext,"force":True}
         if action !="#any#":
@@ -200,15 +218,36 @@ class Record(object):
         if not os.path.exists(self.root_path+"/temp"):
             os.makedirs(self.root_path+"/temp")
 
+    def getDMFandDataType(self):
+        while True:
+            DMFtype = input("Please enter the type of DMF:").strip()
+            if DMFtype in ["add", "view", "delete", "search", "edit"]:
+                break
+            else:
+                print(f"{bcolors.FAIL}ERROR: No matching DMF type, please try again.")
+                print(f"Available DMF type: add, view, delete, search, edit.{bcolors.ENDC}")
+
+        while True:
+            datatype = input("Please enter the type of target data objects of DMF:").strip()
+            if datatype == "":
+                continue
+            break
+
+
+        print(f"{bcolors.OKGREEN}Recording DMF: {DMFtype},  Recording data object:  {datatype}{bcolors.ENDC}")
+        self.DMFtype = DMFtype
+        self.datatype = datatype
+
     def recordDMF(self):
+        HINT_RECORD_STEPS = "Record the steps of DMF in the weditor. Enter 2 to screenshot before recording each step. After all the recordings are completed, enter 1 to stop:"
+        
         screenshot_num = 0
-        DMFtype = input("Please enter the type of DMF:")
-        datatype = input("Please enter the type of target data objects of DMF:")
-        HINT_RECORD_STEPS = "\nRecord the steps of DMF in the webiter. Enter 2 to screenshot before recording each step. After all the recordings are completed, enter 1 to stop:"
-        endstr = input(HINT_RECORD_STEPS)
         xmllist = []
+
+        endstr = input(HINT_RECORD_STEPS)
         while endstr != "1":
             if endstr == "2":
+                # take a screenshot and dump hierachy
                 self.device.use.screenshot(self.root_path+"/temp/"+str(screenshot_num)+".png")
                 xml = self.device.use.dump_hierarchy()
                 f = open(self.root_path+"/temp/"+str(screenshot_num)+".xml",'w',encoding='utf-8')
@@ -217,300 +256,357 @@ class Record(object):
                 lines=f.readlines()
                 xmllist.append(lines)
                 screenshot_num=screenshot_num+1
+                print(f"{bcolors.OKGREEN}screenshot_num: {screenshot_num}{bcolors.ENDC}")
             endstr = input(HINT_RECORD_STEPS)
 
-        #Parsing the recording script of weditor to obtain DMF
-        self.device.use.screenshot(self.root_path+"/temp/"+str(screenshot_num)+".png")
-        xml = self.device.use.dump_hierarchy()
-        f = open(self.root_path+"/temp/"+str(screenshot_num)+".xml",'w',encoding='utf-8')
-        f.write(xml)
-        f = open(self.root_path+"/temp/"+str(screenshot_num)+".xml",'r',encoding='utf-8')
-        lines=f.readlines()
-        xmllist.append(lines)
-        screenshot_num=screenshot_num+1
-
         self.screenshot_num = screenshot_num
-        self.DMFtype = DMFtype
-        self.datatype = datatype
         self.xmllist = xmllist
-        print(f"\n\nlen(xmllist) = {len(self.xmllist)}\n\n")
 
-    def getUiautomatorInst(self):
-        # Hint that the uiautomator instrcution should be copied
-        HINT_COPY_INST = "Now copy the generated uiautomator instructions in the webitor, and enter 1 to next step:" 
-        while True:
-            endstr = input(HINT_COPY_INST)
-            if endstr == "1":
-                dd = pyperclip.paste()
-                if re.match(r"^d\(", dd.strip()):
-                    break
-                else:
-                    print("It seems that you've copied the wrong uiautomator instruction, please try again.")
-        
+    def parseEvents(self):
         # Handle the copied uiautomator instruction
         events = self.events
         views = self.views
+        uiInst = self.uiInst
+        lines = uiInst.split("\n")
 
-        dd=pyperclip.paste()
-        lines = dd.split("\n")
+        current_layout_num = 0
 
+        print(f"{bcolors.BOLD}Parsing Events...{bcolors.ENDC}")
         for line in lines:
             if line.strip()!="":
-                returnvalue=self.get_info(line, self.current_layout_num, self.DMFtype, self.datatype)
+                returnvalue=self.get_info(line, current_layout_num, self.DMFtype, self.datatype)
                 if returnvalue!=None:
-                    self.current_layout_num=self.current_layout_num+1
                     views.append(returnvalue[0])
                     events.append(returnvalue[1])
+                    current_layout_num=current_layout_num+1
+        print(f"{bcolors.BOLD}Parse Events successed.{bcolors.ENDC}")
 
-        
         self.events = events
         self.views = views
-        self.ui_inst_num = self.current_layout_num
-        print(f"ui_inst_num = {self.ui_inst_num}")
 
-    def processAdd(self, xmllist:list, views: list):
-        """The submethod of processRecording
-
-        param:
-            xmllist: the xmllist list
-            views: the view list
-        """
-        add_name = input("Please enter the data object you added in these steps:")
-        add_name_widget=None
-        add_object = None
-        i=0
-        while i<len(xmllist)-1:
-            add_name_widget = self.findviewbytext(xmllist[i],add_name,None)
-            if add_name_widget!=None:
-                add_name_layout = i
-                if add_name_widget.resourceId!="":
-                    add_name_instance=self.findviewinstance(xmllist[i], add_name_widget.resourceId, None, add_name)
-                    add_name_resourceId = add_name_widget.resourceId
-                    add_name_className = ""
-                elif add_name_widget.className!="":
-                    add_name_instance=self.findviewinstance(xmllist[i], None, add_name_widget.className, add_name)
-                    add_name_resourceId = ""
-                    add_name_className = add_name_widget.className
+    def getUiautomatorInst(self):
+        # Hint that the uiautomator instrcution should be copied
+        uiInst = ""
+        while True:
+            endstr = input(r"Now copy the generated uiautomator instructions in the webitor, and enter 1 to next step:" )
+            if endstr == "1":
+                uiInst = pyperclip.paste()
+                if re.match(r"^d\(", uiInst.strip()):
+                    break
                 else:
-                    print("wrong")
-                break
-            i=i+1
-        add_object = self.findviewbytext(xmllist[len(xmllist)-1],add_name,None)
-        add_object_resourceId = ""
-        add_object_className = ""
-        if add_object!=None:
-            if add_object.resourceId!="":
-                add_object_resourceId = add_object.resourceId
-            elif add_object.className!="":
-                add_object_className = add_object.className
-            else:
-                print("wrong")
-        views.append({"name": "add_name","UI_layout_num": str(add_name_layout),"text": "","resource-id": add_name_resourceId,"class": add_name_className,"content-desc": "","xpath": "","instance": str(add_name_instance)})
-        views.append({"name": "add_object","UI_layout_num":str(self.current_layout_num),"text": "add_name.text","resource-id": add_object_resourceId,"class": add_object_className,"content-desc": "","xpath": "","instance": ""})
-        results=[{"operator": "add","object": "add_name.text"}]
-        preconditions=[{"widget": "e1_widget","relation": "in","UI_layout_num": "0","datatype":""},
-            {"UI_layout_num": "0","datatype": self.datatype,"relation": "smaller","widget": ""}]
-        postconditions=[{"widget": "add_object","relation": "in","UI_layout_num": str(self.current_layout_num),"datatype":""}]
+                    print(f"{bcolors.WARNING}It seems that you've copied the wrong uiautomator instruction, please try again.{bcolors.ENDC}")
         
-        return results, preconditions, postconditions
+        ui_inst_num = 0
+        for inst in uiInst.split("\n"):
+            if inst != "":
+                ui_inst_num += 1
 
-    def processDelete(self, xmllist:list, views: list):
-        delete_name = input("Please enter the data object you deleted in these steps:")
-        delete_name_widget=None
-        i=0
-        while i<len(xmllist)-1:
-            delete_name_widget = self.findviewbytext(xmllist[i],delete_name,None)
-            if delete_name_widget!=None:
-                delete_name_layout = i
-                if delete_name_widget.resourceId!="":
-                    delete_name_instance=self.findviewinstance(xmllist[i], delete_name_widget.resourceId, None, delete_name)
-                    delete_name_resourceId = delete_name_widget.resourceId
-                    delete_name_className = ""
-                elif delete_name_widget.className!="":
-                    delete_name_instance=self.findviewinstance(xmllist[i], None, delete_name_widget.className, delete_name)
-                    delete_name_resourceId = ""
-                    delete_name_className = delete_name_widget.className
+        self.ui_inst_num = ui_inst_num
+        self.uiInst = uiInst
+
+    def parseAdd(self, xmllist:list, views: list):
+        while True:
+            add_name = input("Please enter the data object you added in these steps:")
+            if add_name == "":
+                continue
+
+            add_name_widget=None
+            add_object = None
+            xmlIndex=0
+
+            add_name_layout=-1
+            while xmlIndex<len(xmllist)-1:
+                add_name_widget = self.findViewByText(xmllist[xmlIndex],add_name,None)
+                if add_name_widget!=None:
+                    add_name_layout = xmlIndex
+                    if add_name_widget.resourceId!="":
+                        add_name_instance=self.findViewInstance(xmllist[xmlIndex], add_name_widget.resourceId, None, add_name)
+                        add_name_resourceId = add_name_widget.resourceId
+                        add_name_className = ""
+                    elif add_name_widget.className!="":
+                        add_name_instance=self.findViewInstance(xmllist[xmlIndex], None, add_name_widget.className, add_name)
+                        add_name_resourceId = ""
+                        add_name_className = add_name_widget.className
+                    else:
+                        print("wrong")
+                    break
+                xmlIndex=xmlIndex+1
+            add_object = self.findViewByText(xmllist[len(xmllist)-1],add_name,None)
+            add_object_resourceId = ""
+            add_object_className = ""
+            if add_object!=None:
+                if add_object.resourceId!="":
+                    add_object_resourceId = add_object.resourceId
+                elif add_object.className!="":
+                    add_object_className = add_object.className
                 else:
                     print("wrong")
-                break
-            i=i+1
-        views.append({"name": "delete_name","UI_layout_num": str(delete_name_layout),"text": "","resource-id": delete_name_resourceId,"class": delete_name_className,"content-desc": "","xpath": "","instance": str(delete_name_instance)})
-        views.append({"name": "delete_object","UI_layout_num":str(self.current_layout_num),"text": "delete_name.text","resource-id": delete_name_resourceId,"class": delete_name_className,"content-desc": "","xpath": "","instance": ""})
-        results=[{"operator": "delete","object": "delete_name.text"}]
-        preconditions=[{"widget": "e1_widget","relation": "in","UI_layout_num": "0","datatype":""},
-            {"UI_layout_num": "0","datatype": self.datatype,"relation": "is not empty","widget": ""}]
-        postconditions=[{"widget": "delete_object","relation": "not in","UI_layout_num": str(self.current_layout_num),"datatype":""}]
-        return results, preconditions, postconditions
+            
+            if add_name_layout == -1:
+                print(f"{bcolors.FAIL}ERROR: Object not found, please try again.")
+                print(f'Hint: Enter the data you added in the recording. e.g. if you add a file named "test", enter "test".{bcolors.ENDC}')
+                continue
 
-    def processEdit(self, xmllist:list, views:list):
-        add_name = input("Please enter the data object you added in these steps:")
-        add_name_widget=None
-        add_object = None
+            views.append({"name": "add_name","UI_layout_num": str(add_name_layout),"text": "","resource-id": add_name_resourceId,"class": add_name_className,"content-desc": "","xpath": "","instance": str(add_name_instance)})
+            views.append({"name": "add_object","UI_layout_num":str(self.current_layout_num),"text": "add_name.text","resource-id": add_object_resourceId,"class": add_object_className,"content-desc": "","xpath": "","instance": ""})
+            results=[{"operator": "add","object": "add_name.text"}]
+            preconditions=[{"widget": "e1_widget","relation": "in","UI_layout_num": "0","datatype":""},
+                {"UI_layout_num": "0","datatype": self.datatype,"relation": "smaller","widget": ""}]
+            postconditions=[{"widget": "add_object","relation": "in","UI_layout_num": str(self.current_layout_num),"datatype":""}]
+            
+            return results, preconditions, postconditions
 
-        i=0
-        while i<len(xmllist)-1:
-            add_name_widget = self.findviewbytext(xmllist[i],add_name,None)
-            if add_name_widget!=None:
-                add_name_layout = i
-                if add_name_widget.resourceId!="":
-                    add_name_instance=self.findviewinstance(xmllist[i], add_name_widget.resourceId, None, add_name)
-                    add_name_resourceId = add_name_widget.resourceId
-                    add_name_className = ""
-                elif add_name_widget.className!="":
-                    add_name_instance=self.findviewinstance(xmllist[i], None, add_name_widget.className, add_name)
-                    add_name_resourceId = ""
-                    add_name_className = add_name_widget.className
-                else:
-                    print("wrong")
-                break
-            i=i+1
+    def parseDelete(self, xmllist:list, views: list):
+        while True:
+            delete_name = input("Please enter the data object you deleted in these steps:")
+            if delete_name == "":
+                continue
 
-        add_object = self.findviewbytext(xmllist[len(xmllist)-1],add_name,None)
-        add_object_resourceId = ""
-        add_object_className = ""
-        if add_object!=None:
-            if add_object.resourceId!="":
-                add_object_resourceId = add_object.resourceId
-            elif add_object.className!="":
-                add_object_className = add_object.className
+            delete_name_widget=None
+            xmlIndex=0
+
+            delete_name_layout=-1
+            while xmlIndex<len(xmllist)-1:
+                delete_name_widget = self.findViewByText(xmllist[xmlIndex],delete_name,None)
+                if delete_name_widget!=None:
+                    delete_name_layout = xmlIndex
+                    if delete_name_widget.resourceId!="":
+                        delete_name_instance=self.findViewInstance(xmllist[xmlIndex], delete_name_widget.resourceId, None, delete_name)
+                        delete_name_resourceId = delete_name_widget.resourceId
+                        delete_name_className = ""
+                    elif delete_name_widget.className!="":
+                        delete_name_instance=self.findViewInstance(xmllist[xmlIndex], None, delete_name_widget.className, delete_name)
+                        delete_name_resourceId = ""
+                        delete_name_className = delete_name_widget.className
+                    else:
+                        print("wrong")
+                    break
+                xmlIndex=xmlIndex+1
+
+            if delete_name_layout == -1:
+                print(f"{bcolors.FAIL}ERROR: Object not found, please try again.")
+                print(f'Hint: Enter the data you deleted in the recording. e.g. if you delete a file named "test", enter "test".{bcolors.ENDC}')
+                continue
+            
+            views.append({"name": "delete_name","UI_layout_num": str(delete_name_layout),"text": "","resource-id": delete_name_resourceId,"class": delete_name_className,"content-desc": "","xpath": "","instance": str(delete_name_instance)})
+            views.append({"name": "delete_object","UI_layout_num":str(self.current_layout_num),"text": "delete_name.text","resource-id": delete_name_resourceId,"class": delete_name_className,"content-desc": "","xpath": "","instance": ""})
+            results=[{"operator": "delete","object": "delete_name.text"}]
+            preconditions=[{"widget": "e1_widget","relation": "in","UI_layout_num": "0","datatype":""},
+                {"UI_layout_num": "0","datatype": self.datatype,"relation": "is not empty","widget": ""}]
+            postconditions=[{"widget": "delete_object","relation": "not in","UI_layout_num": str(self.current_layout_num),"datatype":""}]
+            return results, preconditions, postconditions
+
+    def parseEdit(self, xmllist:list, views:list):
+        while True:
+            add_name = input("Please enter the data object you added in these steps:")
+            if add_name == "":
+                continue
+
+            add_name_widget=None
+            add_object = None
+
+            xmlIndex=0
+            add_name_layout=-1
+            while xmlIndex<len(xmllist)-1:
+                add_name_widget = self.findViewByText(xmllist[xmlIndex],add_name,None)
+                if add_name_widget!=None:
+                    add_name_layout = xmlIndex
+                    if add_name_widget.resourceId!="":
+                        add_name_instance=self.findViewInstance(xmllist[xmlIndex], add_name_widget.resourceId, None, add_name)
+                        add_name_resourceId = add_name_widget.resourceId
+                        add_name_className = ""
+                    elif add_name_widget.className!="":
+                        add_name_instance=self.findViewInstance(xmllist[xmlIndex], None, add_name_widget.className, add_name)
+                        add_name_resourceId = ""
+                        add_name_className = add_name_widget.className
+                    else:
+                        print("wrong")
+                    break
+                xmlIndex=xmlIndex+1
+
+            if add_name_layout == -1:
+                print(f"{bcolors.FAIL}ERROR: Object not found, please try again.")
+                print(f'Hint: Enter the data you added in the recording. e.g. if you add a file named "test", enter "test".{bcolors.ENDC}')
+                continue
             else:
-                print("wrong")
-        views.append({"name": "add_name","UI_layout_num": str(add_name_layout),"text": "","resource-id": add_name_resourceId,"class": add_name_className,"content-desc": "","xpath": "","instance": str(add_name_instance)})
-        views.append({"name": "add_object","UI_layout_num":str(self.current_layout_num),"text": "add_name.text","resource-id": add_object_resourceId,"class": add_object_className,"content-desc": "","xpath": "","instance": ""})
-
-        delete_name = input("Please enter the data object you deleted in these steps:")
-        delete_name_widget=None
-        i=0
-        while i<len(xmllist)-1:
-            delete_name_widget = self.findviewbytext(xmllist[i],delete_name,None)
-            if delete_name_widget!=None:
-                delete_name_layout = i
-                if delete_name_widget.resourceId!="":
-                    delete_name_instance=self.findviewinstance(xmllist[i], delete_name_widget.resourceId, None, delete_name)
-                    delete_name_resourceId = delete_name_widget.resourceId
-                    delete_name_className = ""
-                elif delete_name_widget.className!="":
-                    delete_name_instance=self.findviewinstance(xmllist[i], None, delete_name_widget.className, delete_name)
-                    delete_name_resourceId = ""
-                    delete_name_className = delete_name_widget.className
+                break
+        
+        while True:
+            add_object = self.findViewByText(xmllist[len(xmllist)-1],add_name,None)
+            add_object_resourceId = ""
+            add_object_className = ""
+            if add_object!=None:
+                if add_object.resourceId!="":
+                    add_object_resourceId = add_object.resourceId
+                elif add_object.className!="":
+                    add_object_className = add_object.className
                 else:
                     print("wrong")
-                break
-            i=i+1
-        views.append({"name": "delete_name","UI_layout_num": str(delete_name_layout),"text": "","resource-id": delete_name_resourceId,"class": delete_name_className,"content-desc": "","xpath": "","instance": str(delete_name_instance)})
-        views.append({"name": "delete_object","UI_layout_num":str(self.current_layout_num),"text": "delete_name.text","resource-id": delete_name_resourceId,"class": delete_name_className,"content-desc": "","xpath": "","instance": ""})
+            views.append({"name": "add_name","UI_layout_num": str(add_name_layout),"text": "","resource-id": add_name_resourceId,"class": add_name_className,"content-desc": "","xpath": "","instance": str(add_name_instance)})
+            views.append({"name": "add_object","UI_layout_num":str(self.current_layout_num),"text": "add_name.text","resource-id": add_object_resourceId,"class": add_object_className,"content-desc": "","xpath": "","instance": ""})
 
-        results=[{"operator": "delete","object": "delete_name.text"},{"operator": "add","object": "add_name.text"}]
-        preconditions=[{"widget": "e1_widget","relation": "in","UI_layout_num": "0","datatype":""},
-            {"UI_layout_num": "0","datatype": self.datatype,"relation": "is not empty","widget": ""}]
-        postconditions=[{"widget": "add_object","relation": "in","UI_layout_num": str(self.current_layout_num),"datatype":""},{"widget": "delete_object","relation": "not in","UI_layout_num": str(self.current_layout_num),"datatype":""}]
+            delete_name = input("Please enter the data object you deleted in these steps:")
+            delete_name_widget=None
+            xmlIndex=0
 
-        return results, preconditions, postconditions
+            delete_name_layout=-1
+            while xmlIndex<len(xmllist)-1:
+                delete_name_widget = self.findViewByText(xmllist[xmlIndex],delete_name,None)
+                if delete_name_widget!=None:
+                    delete_name_layout = xmlIndex
+                    if delete_name_widget.resourceId!="":
+                        delete_name_instance=self.findViewInstance(xmllist[xmlIndex], delete_name_widget.resourceId, None, delete_name)
+                        delete_name_resourceId = delete_name_widget.resourceId
+                        delete_name_className = ""
+                    elif delete_name_widget.className!="":
+                        delete_name_instance=self.findViewInstance(xmllist[xmlIndex], None, delete_name_widget.className, delete_name)
+                        delete_name_resourceId = ""
+                        delete_name_className = delete_name_widget.className
+                    else:
+                        print("wrong")
+                    break
+                xmlIndex=xmlIndex+1
 
-    def processSearch(self, xmllist:list, views:list):
-        search_name = input("Please enter the data object you searched in these steps:")
-        search_name_widget=None
-        search_object = None
-        i=0
-        while i<len(xmllist)-1:
-            search_name_widget = self.findviewbytextclassName(xmllist[i],search_name,"android.widget.EditText")
+            if delete_name_layout == -1:
+                print(f"{bcolors.FAIL}ERROR: Object not found, please try again.")
+                print(f'Hint: Enter the data you deleted in the recording. e.g. if you delete a file named "test", enter "test".{bcolors.ENDC}')
+                continue
+
+            views.append({"name": "delete_name","UI_layout_num": str(delete_name_layout),"text": "","resource-id": delete_name_resourceId,"class": delete_name_className,"content-desc": "","xpath": "","instance": str(delete_name_instance)})
+            views.append({"name": "delete_object","UI_layout_num":str(self.current_layout_num),"text": "delete_name.text","resource-id": delete_name_resourceId,"class": delete_name_className,"content-desc": "","xpath": "","instance": ""})
+
+            results=[{"operator": "delete","object": "delete_name.text"},{"operator": "add","object": "add_name.text"}]
+            preconditions=[{"widget": "e1_widget","relation": "in","UI_layout_num": "0","datatype":""},
+                {"UI_layout_num": "0","datatype": self.datatype,"relation": "is not empty","widget": ""}]
+            postconditions=[{"widget": "add_object","relation": "in","UI_layout_num": str(self.current_layout_num),"datatype":""},{"widget": "delete_object","relation": "not in","UI_layout_num": str(self.current_layout_num),"datatype":""}]
+
+            return results, preconditions, postconditions
+
+    def parseSearch(self, xmllist:list, views:list):
+        while True:
+            search_name = input("Please enter the data object you searched in these steps:")
+            if search_name == "":
+                continue
+
+            search_name_widget=None
+            search_object = None
+            xmlIndex=0
+
+            search_name_layout=-1
+            while xmlIndex<len(xmllist)-1:
+                search_name_widget = self.findViewByTextClassName(xmllist[xmlIndex],search_name,"android.widget.EditText")
+                if search_name_widget!=None:
+                    search_name_layout = xmlIndex
+                    if search_name_widget.resourceId!="":
+                        search_name_instance=self.findViewInstance(xmllist[xmlIndex], search_name_widget.resourceId, None, search_name)
+                        search_name_resourceId = search_name_widget.resourceId
+                        search_name_className = ""
+                    elif search_name_widget.className!="":
+                        search_name_instance=self.findViewInstance(xmllist[xmlIndex], None, search_name_widget.className, search_name)
+                        search_name_resourceId = ""
+                        search_name_className = search_name_widget.className
+                    else:
+                        print("wrong")
+                    break
+                xmlIndex=xmlIndex+1
+            search_object = self.findViewByText(xmllist[len(xmllist)-1],search_name,search_name_widget)
+            search_object_resourceId = ""
+            search_object_className = ""
+            if search_object!=None:
+                if search_object.resourceId!="":
+                    search_object_resourceId = search_object.resourceId
+                elif search_object.className!="":
+                    search_object_className = search_object.className
+                else:
+                    print("wrong")
+
+            if search_name_layout==-1:
+                print(f"{bcolors.FAIL}ERROR: Object not found, please try again.")
+                print(f'Hint: Enter the data you deleted in the recording. e.g. if you delete a file named "test", enter "test".{bcolors.ENDC}')
+                continue
+
             if search_name_widget!=None:
-                search_name_layout = i
-                if search_name_widget.resourceId!="":
-                    search_name_instance=self.findviewinstance(xmllist[i], search_name_widget.resourceId, None, search_name)
-                    search_name_resourceId = search_name_widget.resourceId
-                    search_name_className = ""
-                elif search_name_widget.className!="":
-                    search_name_instance=self.findviewinstance(xmllist[i], None, search_name_widget.className, search_name)
-                    search_name_resourceId = ""
-                    search_name_className = search_name_widget.className
+                views.append({"name": "search_name","UI_layout_num": str(search_name_layout),"text": "","resource-id": search_name_resourceId,"class": search_name_className,"content-desc": "","xpath": "","instance": str(search_name_instance)})
+                views.append({"name": "search_object","UI_layout_num":str(self.current_layout_num),"text": "search_name.text","resource-id": search_object_resourceId,"class": search_object_className,"content-desc": "","xpath": "","instance": ""})
+            else:
+                views.append({"name": "search_object","UI_layout_num":str(self.current_layout_num),"text": self.datatype+"::random","resource-id": search_object_resourceId,"class": search_object_className,"content-desc": "","xpath": "","instance": ""})
+            
+            results=[]
+            preconditions=[{"widget": "e1_widget","relation": "in","UI_layout_num": "0","datatype":""},{"widget": "","relation": "is not empty","UI_layout_num": "","datatype":self.datatype}]
+            postconditions=[{"widget": "search_object","relation": "in","UI_layout_num": str(self.current_layout_num),"datatype":""}]
+
+            return results, preconditions, postconditions
+
+    def parseView(self, xmllist:list, views:list):
+        while True:
+            view_name = input("Please enter the data object you viewed in these steps:")
+            if view_name == "":
+                continue
+
+            view_name_widget=None
+            view_object = None
+            xmlIndex=0
+            view_name_layout=-1
+            while xmlIndex<len(xmllist)-1:
+                view_name_widget = self.findViewByText(xmllist[xmlIndex],view_name,None)
+                if view_name_widget!=None:
+                    view_name_layout = xmlIndex
+                    if view_name_widget.resourceId!="":
+                        view_name_instance=self.findViewInstance(xmllist[xmlIndex], view_name_widget.resourceId, None, view_name)
+                        view_name_resourceId = view_name_widget.resourceId
+                        view_name_className = ""
+                    elif view_name_widget.className!="":
+                        view_name_instance=self.findViewInstance(xmllist[xmlIndex], None, view_name_widget.className, view_name)
+                        view_name_resourceId = ""
+                        view_name_className = view_name_widget.className
+                    else:
+                        print("wrong")
+                    break
+                xmlIndex=xmlIndex+1
+            view_object = self.findViewByText(xmllist[len(xmllist)-1],view_name,view_name_widget)
+            view_object_resourceId = ""
+            view_object_className = ""
+            if view_object!=None:
+                if view_object.resourceId!="":
+                    view_object_resourceId = view_object.resourceId
+                elif view_object.className!="":
+                    view_object_className = view_object.className
                 else:
                     print("wrong")
-                break
-            i=i+1
-        search_object = self.findviewbytext(xmllist[len(xmllist)-1],search_name,search_name_widget)
-        search_object_resourceId = ""
-        search_object_className = ""
-        if search_object!=None:
-            if search_object.resourceId!="":
-                search_object_resourceId = search_object.resourceId
-            elif search_object.className!="":
-                search_object_className = search_object.className
-            else:
-                print("wrong")
-        if search_name_widget!=None:
-            views.append({"name": "search_name","UI_layout_num": str(search_name_layout),"text": "","resource-id": search_name_resourceId,"class": search_name_className,"content-desc": "","xpath": "","instance": str(search_name_instance)})
-            views.append({"name": "search_object","UI_layout_num":str(self.current_layout_num),"text": "search_name.text","resource-id": search_object_resourceId,"class": search_object_className,"content-desc": "","xpath": "","instance": ""})
-        
-        else:
-            views.append({"name": "search_object","UI_layout_num":str(self.current_layout_num),"text": self.datatype+"::random","resource-id": search_object_resourceId,"class": search_object_className,"content-desc": "","xpath": "","instance": ""})
-        
-        results=[]
-        preconditions=[{"widget": "e1_widget","relation": "in","UI_layout_num": "0","datatype":""},{"widget": "","relation": "is not empty","UI_layout_num": "","datatype":self.datatype}]
-        postconditions=[{"widget": "search_object","relation": "in","UI_layout_num": str(self.current_layout_num),"datatype":""}]
 
-        return results, preconditions, postconditions
+            if view_name_layout == -1:
+                print(f"{bcolors.FAIL}ERROR: Object not found, please try again.")
+                print(f'Hint: Enter the data you manipulated in the recording. e.g. if you manipulated a file named "test", enter "test".{bcolors.ENDC}')
+                continue
 
-    def processView(self, xmllist:list, views:list):
-        view_name = input("Please enter the data object you viewed in these steps:")
-        view_name_widget=None
-        view_object = None
-        i=0
-        while i<len(xmllist)-1:
-            view_name_widget = self.findviewbytext(xmllist[i],view_name,None)
-            if view_name_widget!=None:
-                view_name_layout = i
-                if view_name_widget.resourceId!="":
-                    view_name_instance=self.findviewinstance(xmllist[i], view_name_widget.resourceId, None, view_name)
-                    view_name_resourceId = view_name_widget.resourceId
-                    view_name_className = ""
-                elif view_name_widget.className!="":
-                    view_name_instance=self.findviewinstance(xmllist[i], None, view_name_widget.className, view_name)
-                    view_name_resourceId = ""
-                    view_name_className = view_name_widget.className
-                else:
-                    print("wrong")
-                break
-            i=i+1
-        view_object = self.findviewbytext(xmllist[len(xmllist)-1],view_name,view_name_widget)
-        view_object_resourceId = ""
-        view_object_className = ""
-        if view_object!=None:
-            if view_object.resourceId!="":
-                view_object_resourceId = view_object.resourceId
-            elif view_object.className!="":
-                view_object_className = view_object.className
-            else:
-                print("wrong")
-        views.append({"name": "view_name","UI_layout_num": str(view_name_layout),"text": "","resource-id": view_name_resourceId,"class": view_name_className,"content-desc": "","xpath": "","instance": str(view_name_instance)})
-        views.append({"name": "view_object","UI_layout_num":str(self.current_layout_num),"text": "view_name.text","resource-id": view_object_resourceId,"class": view_object_className,"content-desc": "","xpath": "","instance": ""})
-        results=[]
-        preconditions=[{"widget": "e1_widget","relation": "in","UI_layout_num": "0","datatype":""}]
-        postconditions=[{"widget": "view_object","relation": "in","UI_layout_num": str(self.current_layout_num),"datatype":""}]
+            views.append({"name": "view_name","UI_layout_num": str(view_name_layout),"text": "","resource-id": view_name_resourceId,"class": view_name_className,"content-desc": "","xpath": "","instance": str(view_name_instance)})
+            views.append({"name": "view_object","UI_layout_num":str(self.current_layout_num),"text": "view_name.text","resource-id": view_object_resourceId,"class": view_object_className,"content-desc": "","xpath": "","instance": ""})
+            
+            results=[]
+            preconditions=[{"widget": "e1_widget","relation": "in","UI_layout_num": "0","datatype":""}]
+            postconditions=[{"widget": "view_object","relation": "in","UI_layout_num": str(self.current_layout_num),"datatype":""}]
 
-        return results, preconditions, postconditions
+            return results, preconditions, postconditions
 
-    def parseRecoding(self):
+    def parseDMF(self):
         xmllist = self.xmllist
         views = self.views
 
-        #Get and generate additional information
-
+        # Get and generate DMF information
         if self.DMFtype == "add":
-            results, preconditions, postconditions = self.processAdd(xmllist, views)
+            results, preconditions, postconditions = self.parseAdd(xmllist, views)
         elif self.DMFtype == "delete":
-            results, preconditions, postconditions = self.processDelete(xmllist, views)
+            results, preconditions, postconditions = self.parseDelete(xmllist, views)
         elif self.DMFtype == "edit":
-            results, preconditions, postconditions = self.processEdit(xmllist, views)
+            results, preconditions, postconditions = self.parseEdit(xmllist, views)
         elif self.DMFtype == "search":
-            results, preconditions, postconditions = self.processSearch(xmllist, views)
+            results, preconditions, postconditions = self.parseSearch(xmllist, views)
         elif self.DMFtype == "view":
-            results, preconditions, postconditions = self.processView(xmllist, views)
+            results, preconditions, postconditions = self.parseView(xmllist, views)
         
         self.results = results
         self.preconditions = preconditions
         self.postconditions = postconditions
-
 
     def addPrecondition(self):
         preconditions = self.postconditions
@@ -560,8 +656,8 @@ class Record(object):
 
 
     def start(self):
-
-        print("Record start")
+        print("Connecting Device")
+        
         self.mkdirTemp()
         self.mkdirDMFs()
         
@@ -572,21 +668,24 @@ class Record(object):
         # self.device.clear_app(self.app)
         self.device.start_app(self.app)
 
-        #Open the weditor to record the script
+        # Open the weditor to record the script
         # process = subprocess.Popen(["python3","-m","weditor"])
         # processId = process.pid
-        time.sleep(5)
+        print("Record start:")
+        time.sleep(3)
 
         while True:
+            self.getDMFandDataType()
             self.recordDMF()
             self.getUiautomatorInst()
             if self.ui_inst_num + 1 == self.screenshot_num:
                 break
             else:
-                print("ui_instruction_num doesn't match screenshot_num, please try again.")
+                print(f"{bcolors.FAIL}ERROR: ui_instruction_num doesn't match screenshot_num, please try again.{bcolors.ENDC}")
         
-        self.parseRecoding()
+        self.parseEvents()
+        self.parseDMF()
         self.addPrecondition()
         self.save_DMF_JSON()
         
-        print(f"Successfully record DMF {self.DMFtype}!")
+        print(f"{bcolors.BOLD}Successfully record DMF {self.DMFtype}!{bcolors.ENDC}")
